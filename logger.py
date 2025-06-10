@@ -1,14 +1,14 @@
-"""Logging configuration for diraqBench"""
+"""Logging configuration for jeeBench"""
 import logging
 import sys
 from pathlib import Path
 from typing import Optional
 
 
-class DiraqBenchLogger:
-    """Custom logger for diraqBench with consistent formatting"""
+class JeeBenchLogger:
+    """Custom logger for jeeBench with consistent formatting"""
     
-    def __init__(self, name: str = "diraqbench"):
+    def __init__(self, name: str = "jeeBench"):
         self.name = name
         self.logger = logging.getLogger(name)
         self._configured = False
@@ -59,13 +59,13 @@ _logger_instance = None
 
 def setup_logging(level: str = "INFO",
                  log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-                 log_file: Optional[str] = "diraqbench.log",
+                 log_file: Optional[str] = "jeeBench.log",
                  console: bool = True):
     """Setup global logging configuration"""
     global _logger_instance
     
     if _logger_instance is None:
-        _logger_instance = DiraqBenchLogger()
+        _logger_instance = JeeBenchLogger()
     
     _logger_instance.configure(level, log_format, log_file, console)
     return _logger_instance

@@ -1,4 +1,4 @@
-"""Configuration management for diraqBench"""
+"""Configuration management for jeeBench"""
 import os
 from dataclasses import dataclass
 from typing import Dict, Any, List
@@ -175,7 +175,7 @@ class Config:
             "logging": {
                 "level": "INFO",
                 "log_format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-                "log_file": "diraqbench.log",
+                "log_file": "data/logs/jeeBench.log",
                 "console": True
             }
         }
