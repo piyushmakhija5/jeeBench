@@ -159,6 +159,7 @@ class QuestionProcessor:
                         max_output_tokens=self.model_config.max_tokens
                     )
                 )
+                # print(response)
                 # Extract actual usage metadata from Gemini response
                 usage_metadata = getattr(response, 'usage_metadata', None)
                 if usage_metadata:
