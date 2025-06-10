@@ -112,8 +112,8 @@ class Config:
                     },
                     "o3": {
                         "model": "o3",
-                        "input_price": 10/1000000,
-                        "output_price": 40/1000000,
+                        "input_price": 2/1000000, # o3 price drop by 80% on 11th June 2025
+                        "output_price": 8/1000000, # o3 price drop by 80% on 11th June 2025
                         "max_tokens": 50000,
                         "temperature": 1.0,
                         "api_key_env": "OPENAI_API_KEY"
