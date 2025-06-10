@@ -130,25 +130,25 @@ class Config:
                 "google": {
                     "gemini-2.5-flash-preview-05-20": {
                         "model": "gemini-2.5-flash-preview-05-20",
-                        "input_price": 0,
-                        "output_price": 0,
-                        "max_tokens": 10000,
+                        "input_price": 0.15/1000000,
+                        "output_price": 0.60/1000000,
+                        "max_output_tokens": 10000,
                         "temperature": 0.0,
                         "api_key_env": "GOOGLE_API_KEY"
                     },
                     "gemini-2.5-pro-preview-06-05": {
                         "model": "gemini-2.5-pro-preview-06-05",
-                        "input_price": 0,
-                        "output_price": 0,
-                        "max_tokens": 10000,
+                        "input_price": 1.25/1000000,
+                        "output_price": 10.00/1000000,
+                        "max_output_tokens": 10000,
                         "temperature": 0.0,
                         "api_key_env": "GOOGLE_API_KEY"
                     },
                     "gemini-2.0-flash": {
                         "model": "gemini-2.0-flash",
-                        "input_price": 0,
-                        "output_price": 0,
-                        "max_tokens": 10000,
+                        "input_price": 0.10/1000000,
+                        "output_price": 0.40/1000000,
+                        "max_output_tokens": 10000,
                         "temperature": 0.0,
                         "api_key_env": "GOOGLE_API_KEY"
                     }
@@ -166,11 +166,11 @@ class Config:
             },
             "paths": {
                 "data_dir": "data",
-                "output_dir": "extracted_questions",
-                "output_dir_2025": "extracted_questions_2025",
-                "syllabus_file": "data/jee_syllabus.json",
-                "answer_keys_dir": "data/answer_keys",
-                "question_papers_dir": "data/question_papers"
+                "output_dir": "data/outputs/extracted_questions",
+                "output_dir_2025": "data/outputs/extracted_questions",
+                "syllabus_file": "data/inputs/syllabus/jee_syllabus.json",
+                "answer_keys_dir": "data/inputs/question_papers",
+                "question_papers_dir": "data/inputs/question_papers"
             },
             "logging": {
                 "level": "INFO",
@@ -195,7 +195,14 @@ class Config:
         for provider, models_dict in config_dict["models"].items():
             self.models[provider] = {}
             for model_name, model_config in models_dict.items():
-                self.models[provider][model_name] = ModelConfig(**model_config)
+                # Handle different parameter names for different providers
+                processed_config = model_config.copy()
+                
+                # Convert max_output_tokens to max_tokens for Google models
+                if 'max_output_tokens' in processed_config and 'max_tokens' not in processed_config:
+                    processed_config['max_tokens'] = processed_config.pop('max_output_tokens')
+                
+                self.models[provider][model_name] = ModelConfig(**processed_config)
         
         # Processing configuration
         self.processing = ProcessingConfig(**config_dict["processing"])

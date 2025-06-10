@@ -159,15 +159,53 @@ class QuestionProcessor:
                         max_output_tokens=self.model_config.max_tokens
                     )
                 )
-                # Gemini doesn't provide detailed token usage
-                usage = type('Usage', (), {"prompt_tokens": 0, "completion_tokens": 0})()
+                # Extract actual usage metadata from Gemini response
+                usage_metadata = getattr(response, 'usage_metadata', None)
+                if usage_metadata:
+                    # Create usage object with Gemini's actual token counts
+                    usage = usage_metadata
+                else:
+                    # Fallback to fake usage object if no usage metadata
+                    usage = type('Usage', (), {
+                        "prompt_token_count": 0, 
+                        "candidates_token_count": 0,
+                        "total_token_count": 0
+                    })()
                 response_text = response.text
             
             api_call_time = time.time() - api_call_start
             
-            # Calculate costs
-            input_tokens = getattr(usage, 'prompt_tokens', 0)
-            output_tokens = getattr(usage, 'completion_tokens', 0)
+            # Calculate costs - handle different provider token usage formats
+            if self.provider == "anthropic":
+                # Anthropic uses input_tokens and output_tokens
+                input_tokens = getattr(usage, 'input_tokens', 0)
+                output_tokens = getattr(usage, 'output_tokens', 0)
+            elif self.provider == "openai":
+                # OpenAI uses prompt_tokens and completion_tokens
+                input_tokens = getattr(usage, 'prompt_tokens', 0)
+                output_tokens = getattr(usage, 'completion_tokens', 0)
+            elif self.provider == "google":
+                # Google/Gemini uses prompt_token_count and candidates_token_count
+                # Try both snake_case and camelCase variations
+                input_tokens = (getattr(usage, 'prompt_token_count', 0) or 
+                               getattr(usage, 'promptTokenCount', 0) or
+                               getattr(usage, 'input_tokens', 0) or
+                               getattr(usage, 'prompt_tokens', 0))
+                output_tokens = (getattr(usage, 'candidates_token_count', 0) or 
+                                getattr(usage, 'candidatesTokenCount', 0) or
+                                getattr(usage, 'output_tokens', 0) or
+                                getattr(usage, 'completion_tokens', 0))
+            else:
+                # Default fallback - try multiple naming conventions
+                input_tokens = (getattr(usage, 'input_tokens', 0) or 
+                               getattr(usage, 'prompt_tokens', 0) or
+                               getattr(usage, 'prompt_token_count', 0) or
+                               getattr(usage, 'promptTokenCount', 0))
+                output_tokens = (getattr(usage, 'output_tokens', 0) or 
+                                getattr(usage, 'completion_tokens', 0) or
+                                getattr(usage, 'candidates_token_count', 0) or
+                                getattr(usage, 'candidatesTokenCount', 0))
+            
             input_cost = input_tokens * self.model_config.input_price
             output_cost = output_tokens * self.model_config.output_price
             
