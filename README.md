@@ -1,2 +1,2 @@
 # jeeBench
-Evaluation and Benchmarking of LLMs on JEE Question Papers
+Evaluation and Benchmarking of LLMs on JEE question papers
