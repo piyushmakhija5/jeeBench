@@ -210,8 +210,11 @@ class QuestionProcessor:
             # Parse response
             final_answer = self._extract_final_answer(response_text)
             
+            # Get answer key - handle both string and list formats
+            answer_key = question_data.get("answer_key")
+            
             # Calculate match
-            answer_match = self._compare_answers(final_answer, question_data.get("answer_key"))
+            answer_match = self._compare_answers(final_answer, answer_key)
             
             # Combine metrics
             metrics = {
@@ -348,23 +351,86 @@ class QuestionProcessor:
             if llm_answer is None or key_answer is None:
                 return False
             
-            # Normalize both answers
-            llm_norm = self._normalize_answer(llm_answer)
-            key_norm = self._normalize_answer(key_answer)
+            # Handle multiple correct answers (when key_answer is a list)
+            if isinstance(key_answer, list):
+                return self._compare_multiple_correct_answers(llm_answer, key_answer)
             
-            # Direct match
-            if llm_norm == key_norm:
-                return True
-            
-            # Check if answer key is in LLM's answer
-            if key_norm in llm_norm:
-                return True
-            
-            return False
+            # Handle single answer (backward compatibility)
+            return self._compare_single_answer(llm_answer, key_answer)
             
         except Exception as e:
             logger.error(f"Error comparing answers: {e}")
             return False
+    
+    def _compare_single_answer(self, llm_answer: str, key_answer: str) -> bool:
+        """Compare single answer responses"""
+        # Normalize both answers
+        llm_norm = self._normalize_answer(llm_answer)
+        key_norm = self._normalize_answer(key_answer)
+        
+        # Direct match
+        if llm_norm == key_norm:
+            return True
+        
+        # Check if answer key is in LLM's answer
+        if key_norm in llm_norm:
+            return True
+        
+        return False
+    
+    def _compare_multiple_correct_answers(self, llm_answer: str, key_answers: List[str]) -> bool:
+        """Compare multiple correct answer responses"""
+        import re
+        
+        # Extract individual choices from LLM answer
+        llm_choices = self._extract_choices_from_response(llm_answer)
+        
+        # Normalize key answers
+        key_choices = set(self._normalize_answer(choice) for choice in key_answers)
+        
+        # Check if extracted choices match the key exactly
+        return llm_choices == key_choices
+    
+    def _extract_choices_from_response(self, response: str) -> set:
+        """Extract choice letters (A, B, C, D) from LLM response"""
+        import re
+        
+        if not response:
+            return set()
+        
+        # Normalize the response
+        response = response.upper()
+        
+        # Pattern to find choice letters
+        # Matches patterns like "(A)", "A", "(A) and (B)", "A, B", etc.
+        choice_patterns = [
+            r'\b([ABCD])\b',  # Single letters
+            r'\(([ABCD])\)',  # Letters in parentheses
+        ]
+        
+        choices = set()
+        for pattern in choice_patterns:
+            matches = re.findall(pattern, response)
+            choices.update(matches)
+        
+        # Additional logic to handle common response formats
+        # Handle "and" connections: "A and B", "(A) and (C)"
+        and_pattern = r'(?:\(([ABCD])\)|([ABCD]))\s+and\s+(?:\(([ABCD])\)|([ABCD]))'
+        and_matches = re.findall(and_pattern, response)
+        for match_group in and_matches:
+            for choice in match_group:
+                if choice:
+                    choices.add(choice)
+        
+        # Handle comma-separated: "A, B", "(A), (C)"
+        comma_pattern = r'(?:\(([ABCD])\)|([ABCD]))\s*,\s*(?:\(([ABCD])\)|([ABCD]))'
+        comma_matches = re.findall(comma_pattern, response)
+        for match_group in comma_matches:
+            for choice in match_group:
+                if choice:
+                    choices.add(choice)
+        
+        return choices
     
     def _normalize_answer(self, answer: str) -> str:
         """Normalize answer string for comparison"""
@@ -560,9 +626,9 @@ def main():
                        help='The AI model provider to use (anthropic, openai, google, or "all" for all providers)')
     parser.add_argument('--model', type=str, default=None,
                        help='Specific model name to use, or "all" to run all models for the provider')
-    parser.add_argument('--questions', type=str, default='question_metadata.json',
+    parser.add_argument('--questions', type=str, default='data/outputs/extracted_questions/question_metadata_jee_2025.json',
                        help='Path to questions metadata file')
-    parser.add_argument('--output', type=str, default='.',
+    parser.add_argument('--output', type=str, default='data/outputs/results',
                        help='Output directory for results')
     parser.add_argument('--parallel', action='store_true',
                        help='Enable parallel processing')

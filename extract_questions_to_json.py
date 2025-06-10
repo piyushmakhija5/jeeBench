@@ -23,8 +23,8 @@ load_dotenv()
 # Setup logging
 setup_logging(
     level=config.logging["level"],
-    log_format=config.logging["format"],
-    log_file=config.logging["file"],
+    log_format=config.logging["log_format"],
+    log_file=config.logging["log_file"],
     console=config.logging["console"]
 )
 logger = get_logger(__name__)
@@ -62,7 +62,7 @@ class AdvancedJEE2025Extractor:
             r"QUESTION\s+(\d+)",   # QUESTION 1, QUESTION 2, etc.
         ]
         
-        self.log_file = log_file or "outputs/logs/diraqbench.log"
+        self.log_file = log_file or "outputs/logs/jeeBench.log"
         
         logger.info(f"Initialized advanced extractor for {self.pdf_path}")
     
@@ -381,10 +381,10 @@ Look for:
 def extract_2025_papers_advanced():
     """Extract questions from 2025 papers using advanced method"""
     # Get list of 2025 papers
-    paper_files = list(Path("data/question_papers").rglob("*2025*.pdf"))
+    paper_files = list(Path("data/inputs/question_papers").rglob("*2025*.pdf"))
     
     if not paper_files:
-        logger.error("No 2025 papers found in data/question_papers/")
+        logger.error("No 2025 papers found in data/inputs/question_papers/")
         return
     
     logger.info(f"Found {len(paper_files)} 2025 papers: {[p.name for p in paper_files]}")
@@ -396,13 +396,13 @@ def extract_2025_papers_advanced():
         
         # Create output folder for this paper
         paper_name = paper_file.stem.replace(" ", "_")
-        output_folder = f"extracted_questions_advanced_{paper_name}"
+        output_folder = f"data/outputs/extracted_questions/{paper_name}"
         
         try:
             extractor = AdvancedJEE2025Extractor(
                 pdf_path=str(paper_file),
                 output_folder=output_folder,
-                syllabus_path="data/jee_syllabus.json"
+                syllabus_path="data/inputs/syllabus/jee_syllabus.json"
             )
             
             questions_data = extractor.extract_questions_and_answers()
@@ -435,7 +435,7 @@ def extract_2025_papers_advanced():
             else:
                 logger.debug(f"Removing duplicate: {question['subject']} Q{question['question_number']} from {question['extracted_from']}")
         
-        combined_file = Path("question_metadata_2025_advanced_combined.json")
+        combined_file = Path("data/outputs/extracted_questions/question_metadata_jee_2025.json")
         with open(combined_file, 'w') as f:
             json.dump(unique_questions, f, indent=2)
         
