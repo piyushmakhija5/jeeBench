@@ -80,7 +80,7 @@ class Config:
                         "model": "claude-sonnet-4-20250514",
                         "input_price": 3/1000000,
                         "output_price": 15/1000000,
-                        "max_tokens": 50000,
+                        "max_tokens": 10000,
                         "temperature": 0.0,
                         "api_key_env": "ANTHROPIC_API_KEY"
                     },
@@ -88,7 +88,7 @@ class Config:
                         "model": "claude-opus-4-20250514",
                         "input_price": 15/1000000,
                         "output_price": 75/1000000,
-                        "max_tokens": 50000,
+                        "max_tokens": 10000,
                         "temperature": 0.0,
                         "api_key_env": "ANTHROPIC_API_KEY"
                     }
@@ -98,7 +98,7 @@ class Config:
                         "model": "gpt-4o",
                         "input_price": 2.5/1000000,
                         "output_price": 10/1000000,
-                        "max_tokens": 50000,
+                        "max_tokens": 10000,
                         "temperature": 0.0,
                         "api_key_env": "OPENAI_API_KEY"
                     },
@@ -106,7 +106,7 @@ class Config:
                         "model": "gpt-4.1",
                         "input_price": 2/1000000,
                         "output_price": 8/1000000,
-                        "max_tokens": 50000,
+                        "max_tokens": 10000,
                         "temperature": 0.0,
                         "api_key_env": "OPENAI_API_KEY"
                     },
@@ -114,7 +114,7 @@ class Config:
                         "model": "o3",
                         "input_price": 2/1000000, # o3 price drop by 80% on 11th June 2025
                         "output_price": 8/1000000, # o3 price drop by 80% on 11th June 2025
-                        "max_tokens": 50000,
+                        "max_tokens": 10000,
                         "temperature": 1.0,
                         "api_key_env": "OPENAI_API_KEY"
                     },
@@ -122,7 +122,7 @@ class Config:
                         "model": "o4-mini",
                         "input_price": 1.10/1000000,
                         "output_price": 4.40/1000000,
-                        "max_tokens": 50000,
+                        "max_tokens": 10000,
                         "temperature": 1.0,
                         "api_key_env": "OPENAI_API_KEY"
                     }
