@@ -1,2 +1,2 @@
-# diraqBench
-Evaluation and Benchmarking of LLMs for Diraq Project
+# jeeBench
+Evaluation and Benchmarking of LLMs on JEE Question Papers
