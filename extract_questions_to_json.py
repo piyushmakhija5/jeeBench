@@ -292,11 +292,14 @@ class AdvancedJEE2025Extractor:
             # Analyze with AI if available
             analysis_result = {}
             if self.anthropic_client:
-                analysis_result = self._analyze_question_with_ai(img_path)
+                analysis_result = self._analyze_question_with_ai(img_path, question["subject"])
 
             # Normalize question type using scoring config
             raw_question_type = analysis_result.get("type", "Unknown")
             normalized_question_type = self._normalize_question_type(raw_question_type)
+
+            # Use unit directly from AI analysis (no normalization needed)
+            unit = analysis_result.get("unit", "Unknown")
 
             # Add scoring information based on question type
             scoring_info = self.scoring_config.get(normalized_question_type, {})
@@ -306,7 +309,7 @@ class AdvancedJEE2025Extractor:
                 "subject": question["subject"],
                 "question_number": question["q_num"],
                 "page_number": start_page + 1,
-                "unit": analysis_result.get("unit", "Unknown"),
+                "unit": unit,
                 "image_path": str(img_path),
                 "answer_key": analysis_result.get("answer", None),
                 "choices": analysis_result.get("choices", []),
@@ -323,39 +326,54 @@ class AdvancedJEE2025Extractor:
                 "question_text": analysis_result.get("question_text", "")
             }
 
-            logger.debug(f"Processed {question['subject']} Q{q_identifier}: {normalized_question_type} - {analysis_result.get('answer', 'No answer')}")
+            logger.debug(f"Processed {question['subject']} Q{q_identifier}: {normalized_question_type} - Unit: {unit} - {analysis_result.get('answer', 'No answer')}")
             return question_data
 
         except Exception as e:
             logger.error(f"Failed to extract question {question['q_num']}: {e}")
             return None
 
-    def _analyze_question_with_ai(self, image_path: Path) -> Dict:
+    def _analyze_question_with_ai(self, image_path: Path, subject: str = None) -> Dict:
         """Analyze question image with AI to extract structured data"""
         try:
             # Encode image to base64
             with open(image_path, "rb") as img_file:
                 image_data = base64.b64encode(img_file.read()).decode('utf-8')
 
+            # Prepare syllabus information for the prompt
+            syllabus_text = ""
+            if self.syllabus:
+                syllabus_text = "\n\nJEE SYLLABUS UNITS:\n"
+                for subj, units in self.syllabus.items():
+                    syllabus_text += f"\n{subj}:\n"
+                    for unit_key, unit_name in units.items():
+                        syllabus_text += f"  - {unit_name}\n"
+
+                syllabus_text += "\nYou MUST select the unit from the above syllabus based on the question content."
+
             # AI prompt for analysis
-            prompt = """
+            prompt = f"""
 Analyze this JEE Advanced question image and extract the following information in JSON format:
 
-{
+{{
   "type": "MCQ" or "Numerical" or "Multiple Correct",
   "subject": "Mathematics" or "Physics" or "Chemistry",
-  "unit": "specific unit/topic within the subject",
+  "unit": "EXACT unit name from the syllabus below",
   "choices": ["A", "B", "C", "D"] or [] for numerical,
   "answer": "correct answer(s) - letter(s) for MCQ or number for numerical",
   "difficulty": "Easy" or "Medium" or "Hard",
-  "question_text": "brief description of what the question asks"
-}
+  "question_text": "EXACT question text from the image"
+}}
 
-Look for:
-- Multiple choice options (A), (B), (C), (D)
-- Answer key in solution sections
-- Question type and topic
-- ONLY provide valid JSON, no other text.
+{syllabus_text}
+
+IMPORTANT INSTRUCTIONS:
+1. For the "unit" field, you MUST use the EXACT unit name from the syllabus above
+2. Analyze the question content to determine which syllabus unit it belongs to
+3. Do NOT create your own unit names - only use the ones listed in the syllabus
+4. Look for multiple choice options (A), (B), (C), (D)
+5. Look for answer key in solution sections
+6. ONLY provide valid JSON, no other text.
 """
 
             response = self.anthropic_client.messages.create(
@@ -392,6 +410,18 @@ Look for:
                     json_end = response_text.rfind("}") + 1
                     json_str = response_text[json_start:json_end]
                     analysis = json.loads(json_str)
+
+                    # Validate that the unit is from the syllabus
+                    unit = analysis.get("unit", "")
+                    subject_from_analysis = analysis.get("subject", "")
+
+                    if self.syllabus and subject_from_analysis in self.syllabus:
+                        valid_units = list(self.syllabus[subject_from_analysis].values())
+                        if unit not in valid_units:
+                            logger.warning(f"AI returned invalid unit '{unit}' for {subject_from_analysis}. Setting to 'Unknown'")
+                            analysis["unit"] = "Unknown"
+                        else:
+                            logger.debug(f"AI selected valid unit: {unit}")
 
                     logger.debug(f"AI analysis successful: {analysis.get('type', 'Unknown')} question")
                     return analysis

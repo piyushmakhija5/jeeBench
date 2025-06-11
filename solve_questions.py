@@ -80,16 +80,11 @@ class QuestionProcessor:
             logger.error(f"Failed to encode image {image_path}: {e}")
             raise ImageProcessingError(f"Error encoding image {image_path}: {str(e)}")
 
-    def _make_api_call(self, base64_image: str) -> tuple[str, Dict[str, Any]]:
+    def _make_api_call(self, base64_image: str, question_data: Dict[str, Any] = None) -> tuple[str, Dict[str, Any]]:
         """Make API call to the provider"""
-        prompt = (
-            "Analyze this question and provide your response in the following JSON format:\n"
-            "{\n"
-            '  "Solution": "Detailed step-by-step solution explanation",\n'
-            '  "Final Answer": "MCQ answer choice(s) or the final numerical answer"\n'
-            "}\n"
-            "ONLY provide valid JSON structure and escape any special characters properly."
-        )
+        # Get question type and generate appropriate prompt
+        question_type = question_data.get("question_type", "MCQ") if question_data else "MCQ"
+        prompt = self._generate_question_type_prompt(question_type, question_data)
 
         api_call_start = time.time()
 
@@ -230,6 +225,78 @@ class QuestionProcessor:
             else:
                 raise APIResponseError(f"API call failed: {e}")
 
+    def _generate_question_type_prompt(self, question_type: str, question_data: Dict[str, Any] = None) -> str:
+        """Generate question-type specific prompt"""
+        base_instruction = "Analyze this question and provide your response in the following JSON format:\n"
+
+        if question_type == "MCQ" or question_type == "Pair Matching":
+            choices = question_data.get("choices", ["A", "B", "C", "D"]) if question_data else ["A", "B", "C", "D"]
+            choices_str = ", ".join(choices)
+
+            prompt = (
+                base_instruction +
+                "{\n"
+                '  "Solution": "Detailed step-by-step solution explanation",\n'
+                f'  "Final Answer": "Single letter from [{choices_str}] - ONLY the letter, no additional text"\n'
+                "}\n\n"
+                "CRITICAL REQUIREMENTS:\n"
+                f"- Final Answer MUST be exactly ONE letter: {choices_str}\n"
+                "- Do NOT include parentheses, explanations, or additional text\n"
+                "- Examples of CORRECT format: 'A', 'B', 'C', 'D'\n"
+                f"- Examples of INCORRECT format: '(A)', 'Choice A', 'A is correct', 'Answer is A'\n"
+                "- You MUST select one of the given choices even if uncertain\n"
+                "ONLY provide valid JSON structure and escape any special characters properly."
+            )
+
+        elif question_type == "Multiple Correct":
+            choices = question_data.get("choices", ["A", "B", "C", "D"]) if question_data else ["A", "B", "C", "D"]
+            choices_str = ", ".join(choices)
+
+            prompt = (
+                base_instruction +
+                "{\n"
+                '  "Solution": "Detailed step-by-step solution explanation",\n'
+                f'  "Final Answer": "One or more letters from [{choices_str}] separated by commas - ONLY the letters"\n'
+                "}\n\n"
+                "CRITICAL REQUIREMENTS:\n"
+                f"- Final Answer MUST be one or more letters from: {choices_str}\n"
+                "- Multiple answers should be separated by commas: 'A, B' or 'A, C, D'\n"
+                "- Do NOT include parentheses, explanations, or additional text\n"
+                "- Examples of CORRECT format: 'A', 'A, B', 'A, C, D', 'B, D'\n"
+                "- Examples of INCORRECT format: '(A), (B)', 'Choices A and B', 'A and B are correct'\n"
+                "- You MUST select at least one choice\n"
+                "ONLY provide valid JSON structure and escape any special characters properly."
+            )
+
+        elif question_type == "Numerical":
+            prompt = (
+                base_instruction +
+                "{\n"
+                '  "Solution": "Detailed step-by-step solution explanation",\n'
+                '  "Final Answer": "Numerical value only - no units, no additional text"\n'
+                "}\n\n"
+                "CRITICAL REQUIREMENTS:\n"
+                "- Final Answer MUST be a numerical value only\n"
+                "- Do NOT include units, explanations, or additional text\n"
+                "- Use appropriate precision (typically 2-3 decimal places)\n"
+                "- Examples of CORRECT format: '5', '3.14', '0.75', '-2.5'\n"
+                "- Examples of INCORRECT format: '5 meters', 'approximately 3.14', 'Answer is 0.75'\n"
+                "ONLY provide valid JSON structure and escape any special characters properly."
+            )
+
+        else:
+            # Default fallback
+            prompt = (
+                base_instruction +
+                "{\n"
+                '  "Solution": "Detailed step-by-step solution explanation",\n'
+                '  "Final Answer": "MCQ answer choice(s) or the final numerical answer"\n'
+                "}\n"
+                "ONLY provide valid JSON structure and escape any special characters properly."
+            )
+
+        return prompt
+
     def process_single_question(self, question_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process a single question and return results"""
         try:
@@ -244,10 +311,10 @@ class QuestionProcessor:
             base64_image, encoding_time, encoded_size = self.encode_image(image_path)
 
             # Make API call with retry logic
-            response_text, api_metrics = self._make_api_call_with_retry(base64_image)
+            response_text, api_metrics = self._make_api_call_with_retry(base64_image, question_data)
 
             # Parse response
-            final_answer = self._extract_final_answer(response_text)
+            final_answer = self._extract_final_answer(response_text, question_data)
 
             # Get answer key - handle both string and list formats
             answer_key = question_data.get("answer_key")
@@ -293,11 +360,11 @@ class QuestionProcessor:
                 "score": 0.0
             }
 
-    def _make_api_call_with_retry(self, base64_image: str) -> tuple[str, Dict[str, Any]]:
+    def _make_api_call_with_retry(self, base64_image: str, question_data: Dict[str, Any] = None) -> tuple[str, Dict[str, Any]]:
         """Make API call with retry logic"""
         for attempt in range(config.processing.retry_attempts):
             try:
-                return self._make_api_call(base64_image)
+                return self._make_api_call(base64_image, question_data)
             except APIRateLimitError as e:
                 if attempt < config.processing.retry_attempts - 1:
                     wait_time = config.processing.retry_delay * (2 ** attempt)
@@ -312,7 +379,7 @@ class QuestionProcessor:
                 else:
                     raise e
 
-    def _extract_final_answer(self, response_text: str) -> Optional[str]:
+    def _extract_final_answer(self, response_text: str, question_data: Dict[str, Any] = None) -> Optional[str]:
         """Extract the final answer from the LLM response"""
         if not response_text:
             return None
@@ -321,18 +388,83 @@ class QuestionProcessor:
             # Strategy 1: Try JSON parsing (handles most cases)
             answer = self._try_json_extraction(response_text)
             if answer:
-                return answer
+                # Clean and validate the answer based on question type
+                cleaned_answer = self._clean_and_validate_answer(answer, question_data)
+                return cleaned_answer
 
             # Strategy 2: Regex fallback for "Final Answer" patterns
             answer = self._try_regex_extraction(response_text)
             if answer:
-                return answer
+                # Clean and validate the answer based on question type
+                cleaned_answer = self._clean_and_validate_answer(answer, question_data)
+                return cleaned_answer
 
             return None
 
         except Exception as e:
             logger.error(f"Error extracting final answer: {e}")
             return None
+
+    def _clean_and_validate_answer(self, answer: str, question_data: Dict[str, Any] = None) -> str:
+        """Clean and validate answer based on question type"""
+        if not answer:
+            return answer
+
+        question_type = question_data.get("question_type", "MCQ") if question_data else "MCQ"
+        choices = question_data.get("choices", ["A", "B", "C", "D"]) if question_data else ["A", "B", "C", "D"]
+
+        # Clean common unwanted patterns
+        import re
+        cleaned_answer = answer.strip()
+
+        if question_type == "MCQ" or question_type == "Pair Matching":
+            # Extract single letter choice
+            # Remove common prefixes and suffixes
+            cleaned_answer = re.sub(r'^(Answer\s*is\s*|Choice\s*|Option\s*|\(|\))', '', cleaned_answer, flags=re.IGNORECASE)
+            cleaned_answer = re.sub(r'(\s*is\s*correct|\s*is\s*the\s*answer|\)|\.)$', '', cleaned_answer, flags=re.IGNORECASE)
+
+            # Extract the first valid choice letter
+            for choice in choices:
+                if re.search(rf'\b{choice}\b', cleaned_answer, re.IGNORECASE):
+                    return choice.upper()
+
+            # If no valid choice found, try to extract any letter
+            letter_match = re.search(r'\b([ABCD])\b', cleaned_answer, re.IGNORECASE)
+            if letter_match:
+                letter = letter_match.group(1).upper()
+                if letter in choices:
+                    return letter
+
+        elif question_type == "Multiple Correct":
+            # Extract multiple choice letters
+            # Clean common patterns
+            cleaned_answer = re.sub(r'(Answer\s*is\s*|Choices?\s*|Options?\s*)', '', cleaned_answer, flags=re.IGNORECASE)
+            cleaned_answer = re.sub(r'(\s*are\s*correct|\s*is\s*the\s*answer)$', '', cleaned_answer, flags=re.IGNORECASE)
+
+            # Find all valid choice letters
+            found_choices = []
+            for choice in choices:
+                if re.search(rf'\b{choice}\b', cleaned_answer, re.IGNORECASE):
+                    if choice.upper() not in found_choices:
+                        found_choices.append(choice.upper())
+
+            if found_choices:
+                # Sort choices to maintain consistent order
+                found_choices.sort()
+                return ", ".join(found_choices)
+
+        elif question_type == "Numerical":
+            # Extract numerical value
+            # Remove units and explanatory text
+            cleaned_answer = re.sub(r'(approximately|about|roughly|\u2248|~)', '', cleaned_answer, flags=re.IGNORECASE)
+
+            # Extract the first number (including decimals and negative numbers)
+            number_match = re.search(r'-?\d+\.?\d*', cleaned_answer)
+            if number_match:
+                return number_match.group(0)
+
+        # Return original if no specific cleaning was applied
+        return cleaned_answer
 
     def _try_json_extraction(self, response_text: str) -> Optional[str]:
         """Try to extract answer from JSON"""
@@ -370,10 +502,11 @@ class QuestionProcessor:
         """Extract using regex patterns as fallback"""
         import re
 
-        # Look for "Final Answer:" patterns
+        # Look for "Final Answer:" patterns, including bold markdown
         patterns = [
             r'"Final Answer":\s*"([^"]+)"',
             r'"Final Answer":\s*([^,}\n]+)',
+            r'\*\*Final Answer:\*\*\s*([^\n]+)',  # Handle bold markdown
             r'Final Answer:?\s*([^\n]+)',
             r'Answer:?\s*([^\n]+)',
         ]
@@ -382,8 +515,8 @@ class QuestionProcessor:
             match = re.search(pattern, response_text, re.IGNORECASE)
             if match:
                 answer = match.group(1).strip()
-                # Clean up common artifacts
-                answer = re.sub(r'^["\',;:]+|["\',;:]+$', '', answer)
+                # Clean up common artifacts and bold markdown
+                answer = re.sub(r'^["\',;:*]+|["\',;:*]+$', '', answer)
                 if answer:
                     return answer
 
@@ -446,7 +579,7 @@ class QuestionProcessor:
         return match_type == "Yes"
 
     def _compare_multiple_correct_answers_with_score(self, llm_answer: str, key_answers: List[str], scoring_info: Dict[str, Any] = None) -> Tuple[str, float]:
-        """Compare multiple correct answer responses with scoring"""
+        """Compare multiple correct answer responses with JEE 2025 scoring logic"""
         import re
 
         # Get scoring information from the question metadata
@@ -455,7 +588,8 @@ class QuestionProcessor:
 
         full_marks = scoring_info.get('full_marks', 4)
         negative_marks = scoring_info.get('negative_marks', -2)
-        partial_marks = scoring_info.get('partial_marks', 1)
+        zero_marks = scoring_info.get('zero_marks', 0)
+        partial_marks_config = scoring_info.get('partial_marks', {})
 
         # Extract individual choices from LLM answer
         llm_choices = self._extract_choices_from_response(llm_answer)
@@ -463,30 +597,51 @@ class QuestionProcessor:
         # Normalize key answers
         key_choices = set(self._normalize_answer(choice) for choice in key_answers)
 
-        if not llm_choices and not key_choices:
-            return "No", negative_marks
-
+        # Handle unanswered case - no choices selected
         if not llm_choices:
+            return "No", zero_marks
+
+        # Handle edge case - no correct answers exist
+        if not key_choices:
             return "No", negative_marks
 
-        # Calculate overlap
+        # Calculate overlap and incorrect selections
         overlap = llm_choices.intersection(key_choices)
+        incorrect_choices = llm_choices - key_choices
+
+        total_correct = len(key_choices)
+        selected_correct = len(overlap)
+        selected_incorrect = len(incorrect_choices)
 
         # Full match - all correct choices selected, no incorrect ones
         if llm_choices == key_choices:
             return "Yes", full_marks
 
-        # Partial match logic for multiple correct questions
-        elif overlap and len(overlap) > 0:
-            # Check if any incorrect choices were selected
-            incorrect_choices = llm_choices - key_choices
+        # Apply JEE 2025 Multiple Correct scoring scheme
+        if selected_incorrect > 0:
+            # Any incorrect choice selected -> negative marks (except specific partial cases)
+            return "No", negative_marks
 
-            if len(incorrect_choices) == 0 and len(overlap) > 0:
-                # Only correct choices selected (but not all), award partial marks
-                return "Partial", partial_marks
+        # Only correct choices selected (but not all)
+        if selected_correct > 0 and selected_incorrect == 0:
+            # Handle specific partial marking cases based on JEE 2025 scheme
+            if isinstance(partial_marks_config, dict):
+                # New complex partial marking scheme
+                if total_correct == 4 and selected_correct == 3:
+                    # +3 If all the four options are correct but ONLY three options are chosen
+                    return "Partial", partial_marks_config.get('3_of_4', 3)
+                elif total_correct >= 3 and selected_correct == 2:
+                    # +2 If three or more options are correct but ONLY two options are chosen, both correct
+                    return "Partial", partial_marks_config.get('2_of_3_plus', 2)
+                elif total_correct >= 2 and selected_correct == 1:
+                    # +1 If two or more options are correct but ONLY one option is chosen and it is correct
+                    return "Partial", partial_marks_config.get('1_of_2_plus', 1)
+                else:
+                    # Other partial cases not explicitly covered - negative marks
+                    return "No", negative_marks
             else:
-                # Some incorrect choices selected, award negative marks
-                return "No", negative_marks
+                # Fallback to simple partial marking (backward compatibility)
+                return "Partial", partial_marks_config
 
         # No correct choices selected
         return "No", negative_marks
@@ -497,7 +652,36 @@ class QuestionProcessor:
         return match_type == "Yes"
 
     def _is_numerical_match(self, llm_answer: str, key_answer: str) -> bool:
-        """Check if numerical answers match within tolerance"""
+        """Check if numerical answers match within tolerance or handle OR conditions"""
+        import re
+
+        try:
+            # FIX: Handle OR conditions in numerical answers first
+            if ' OR ' in key_answer.upper():
+                # Split by OR and check if LLM answer matches any of the alternatives
+                or_parts = re.split(r'\s+OR\s+', key_answer, flags=re.IGNORECASE)
+                for part in or_parts:
+                    part = part.strip()
+                    # Check direct match or numerical match for each part
+                    if self._normalize_answer(llm_answer) == self._normalize_answer(part):
+                        return True
+                    # Also check numerical tolerance for each part
+                    if self._check_numerical_tolerance(llm_answer, part):
+                        return True
+                return False
+
+            # Check if answer key is a range format
+            if self._is_range_answer(key_answer):
+                return self._is_numerical_in_range(llm_answer, key_answer)
+
+            # For non-range answers, use existing numerical comparison
+            return self._check_numerical_tolerance(llm_answer, key_answer)
+
+        except (ValueError, IndexError):
+            return False
+
+    def _check_numerical_tolerance(self, llm_answer: str, key_answer: str) -> bool:
+        """Check if two numerical answers match within tolerance"""
         import re
 
         try:
@@ -518,6 +702,113 @@ class QuestionProcessor:
 
         except (ValueError, IndexError):
             return False
+
+    def _is_range_answer(self, answer: str) -> bool:
+        """Check if answer is in range format like '[0.7 to 0.8]' or '0.27 to 0.33'"""
+        import re
+
+        # FIX: Don't treat OR conditions as ranges - they are separate valid answers
+        if ' OR ' in answer.upper():
+            return False
+
+        # Check for range patterns and negative numbers
+        range_patterns = [
+            r'\[[\-]?[\d.]+\s+to\s+[\-]?[\d.]+\]',  # [0.7 to 0.8] or [-7.2 to -7]
+            r'[\-]?[\d.]+\s+to\s+[\-]?[\d.]+',       # 0.27 to 0.33 or -7.2 to -7
+            r'\[[\-]?[\d.]+\s*-\s*[\-]?[\d.]+\]',    # [0.7-0.8] with negative support
+            r'[\-]?[\d.]+\s*-\s*[\-]?[\d.]+',        # 0.7-0.8 with negative support
+        ]
+
+        answer_cleaned = answer.strip()
+        for pattern in range_patterns:
+            if re.search(pattern, answer_cleaned, re.IGNORECASE):
+                return True
+        return False
+
+    def _is_numerical_in_range(self, llm_answer: str, range_answer: str) -> bool:
+        """Check if numerical answer lies within the specified range"""
+        import re
+
+        try:
+            # Extract the numerical value from LLM answer
+            llm_numbers = re.findall(r'-?\d+\.?\d*', llm_answer)
+            if not llm_numbers:
+                return False
+
+            llm_val = float(llm_numbers[0])
+
+            # Extract range bounds from the answer key
+            # Handle different range formats
+            range_bounds = self._extract_range_bounds(range_answer)
+            if not range_bounds:
+                return False
+
+            min_val, max_val = range_bounds
+
+            # Check if the value lies within the range (inclusive)
+            return min_val <= llm_val <= max_val
+
+        except (ValueError, IndexError):
+            return False
+
+    def _extract_range_bounds(self, range_answer: str) -> Optional[Tuple[float, float]]:
+        """Extract minimum and maximum values from range answer"""
+        import re
+
+        try:
+            # Remove brackets and normalize
+            cleaned = range_answer.strip().replace('[', '').replace(']', '')
+
+            # Handle OR cases (e.g., "-29.95 to -29.8 OR 29.8 to 29.95")
+            if ' OR ' in cleaned.upper():
+                or_parts = re.split(r'\s+OR\s+', cleaned, flags=re.IGNORECASE)
+                # Try each OR part and return the first valid one
+                for part in or_parts:
+                    bounds = self._extract_single_range_bounds(part.strip())
+                    if bounds:
+                        return bounds
+                return None
+            else:
+                return self._extract_single_range_bounds(cleaned)
+
+        except (ValueError, IndexError):
+            return None
+
+    def _extract_single_range_bounds(self, range_str: str) -> Optional[Tuple[float, float]]:
+        """Extract bounds from a single range string"""
+        import re
+
+        try:
+            # Handle different separators with improved negative number support
+            if ' to ' in range_str:
+                parts = range_str.split(' to ')
+            elif ' TO ' in range_str:
+                parts = range_str.split(' TO ')
+            else:
+                # Handle dash separator while preserving negative signs
+                # Look for pattern: number - number (not negative number)
+                # Use word boundaries and spacing to distinguish
+                dash_pattern = r'(-?\d+(?:\.\d+)?)\s*-\s*(-?\d+(?:\.\d+)?)'
+                match = re.match(dash_pattern, range_str.strip())
+                if match:
+                    parts = [match.group(1), match.group(2)]
+                else:
+                    return None
+
+            if len(parts) != 2:
+                return None
+
+            min_val = float(parts[0].strip())
+            max_val = float(parts[1].strip())
+
+            # Ensure min_val <= max_val
+            if min_val > max_val:
+                min_val, max_val = max_val, min_val
+
+            return (min_val, max_val)
+
+        except (ValueError, IndexError):
+            return None
 
     def _extract_choices_from_response(self, response: str) -> set:
         """Extract choice letters (A, B, C, D) from LLM response"""
