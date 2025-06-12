@@ -528,9 +528,13 @@ class QuestionProcessor:
             if llm_answer is None or key_answer is None:
                 return "No", 0.0
 
-            # Handle multiple correct answers (when key_answer is a list)
+            # Handle multiple correct answers (when key_answer is a list OR contains commas)
             if isinstance(key_answer, list):
                 return self._compare_multiple_correct_answers_with_score(llm_answer, key_answer, scoring_info)
+            elif isinstance(key_answer, str) and ',' in key_answer:
+                # Convert comma-separated string to list for Multiple Correct questions
+                key_answers_list = [choice.strip() for choice in key_answer.split(',')]
+                return self._compare_multiple_correct_answers_with_score(llm_answer, key_answers_list, scoring_info)
 
             # Handle single answer
             return self._compare_single_answer_with_score(llm_answer, key_answer, scoring_info)
@@ -550,9 +554,23 @@ class QuestionProcessor:
         if scoring_info is None:
             scoring_info = {}
 
-        full_marks = scoring_info.get('full_marks', 3)
-        negative_marks = scoring_info.get('negative_marks', -1)
-        partial_marks = scoring_info.get('partial_marks', 0)
+        # Only use scoring values if explicitly provided in metadata
+        full_marks = scoring_info.get('full_marks')
+        negative_marks = scoring_info.get('negative_marks')
+        partial_marks = scoring_info.get('partial_marks')
+
+        # If no scoring info provided, cannot calculate proper scores
+        if full_marks is None or negative_marks is None:
+            # Fallback to basic match detection with zero scoring
+            llm_norm = self._normalize_answer(llm_answer)
+            key_norm = self._normalize_answer(key_answer)
+
+            if llm_norm == key_norm or self._is_numerical_match(llm_answer, key_answer):
+                return "Yes", 0.0
+            elif key_norm in llm_norm:
+                return "Partial", 0.0
+            else:
+                return "No", 0.0
 
         # Normalize both answers
         llm_norm = self._normalize_answer(llm_answer)
@@ -563,8 +581,16 @@ class QuestionProcessor:
             return "Yes", full_marks
 
         # Check if answer key is in LLM's answer - award partial marks
-        if key_norm in llm_norm:
-            return "Partial", partial_marks
+        # FIX: Handle case where partial_marks might be a dictionary (for Multiple Correct questions)
+        if key_norm in llm_norm and partial_marks is not None:
+            # If partial_marks is a dictionary, it's likely a multiple correct question
+            # In this case, we shouldn't give partial marks for single answer matching
+            if isinstance(partial_marks, dict):
+                # For single answer questions with dict partial_marks, treat as no partial scoring
+                pass
+            else:
+                # partial_marks is a number, use it directly
+                return "Partial", partial_marks
 
         # Check for numerical answers with some tolerance
         if self._is_numerical_match(llm_answer, key_answer):
@@ -586,9 +612,10 @@ class QuestionProcessor:
         if scoring_info is None:
             scoring_info = {}
 
-        full_marks = scoring_info.get('full_marks', 4)
-        negative_marks = scoring_info.get('negative_marks', -2)
-        zero_marks = scoring_info.get('zero_marks', 0)
+        # Only use scoring values if explicitly provided in metadata
+        full_marks = scoring_info.get('full_marks')
+        negative_marks = scoring_info.get('negative_marks')
+        zero_marks = scoring_info.get('zero_marks')
         partial_marks_config = scoring_info.get('partial_marks', {})
 
         # Extract individual choices from LLM answer
@@ -597,9 +624,19 @@ class QuestionProcessor:
         # Normalize key answers
         key_choices = set(self._normalize_answer(choice) for choice in key_answers)
 
+        # If no scoring info provided, cannot calculate proper scores
+        if full_marks is None or negative_marks is None:
+            # Fallback to basic match detection with zero scoring
+            if llm_choices == key_choices:
+                return "Yes", 0.0
+            elif llm_choices.intersection(key_choices) and not (llm_choices - key_choices):
+                return "Partial", 0.0
+            else:
+                return "No", 0.0
+
         # Handle unanswered case - no choices selected
         if not llm_choices:
-            return "No", zero_marks
+            return "No", zero_marks if zero_marks is not None else 0.0
 
         # Handle edge case - no correct answers exist
         if not key_choices:
@@ -625,23 +662,29 @@ class QuestionProcessor:
         # Only correct choices selected (but not all)
         if selected_correct > 0 and selected_incorrect == 0:
             # Handle specific partial marking cases based on JEE 2025 scheme
-            if isinstance(partial_marks_config, dict):
-                # New complex partial marking scheme
+            if isinstance(partial_marks_config, dict) and partial_marks_config:
+                # Use the specific partial marking scheme from metadata
                 if total_correct == 4 and selected_correct == 3:
                     # +3 If all the four options are correct but ONLY three options are chosen
-                    return "Partial", partial_marks_config.get('3_of_4', 3)
+                    partial_score = partial_marks_config.get('3_of_4')
+                    if partial_score is not None:
+                        return "Partial", partial_score
                 elif total_correct >= 3 and selected_correct == 2:
                     # +2 If three or more options are correct but ONLY two options are chosen, both correct
-                    return "Partial", partial_marks_config.get('2_of_3_plus', 2)
+                    partial_score = partial_marks_config.get('2_of_3_plus')
+                    if partial_score is not None:
+                        return "Partial", partial_score
                 elif total_correct >= 2 and selected_correct == 1:
                     # +1 If two or more options are correct but ONLY one option is chosen and it is correct
-                    return "Partial", partial_marks_config.get('1_of_2_plus', 1)
-                else:
-                    # Other partial cases not explicitly covered - negative marks
-                    return "No", negative_marks
+                    partial_score = partial_marks_config.get('1_of_2_plus')
+                    if partial_score is not None:
+                        return "Partial", partial_score
+
+                # Other partial cases not explicitly covered - negative marks
+                return "No", negative_marks
             else:
-                # Fallback to simple partial marking (backward compatibility)
-                return "Partial", partial_marks_config
+                # No valid partial marking config - award negative marks for incomplete answers
+                return "No", negative_marks
 
         # No correct choices selected
         return "No", negative_marks
