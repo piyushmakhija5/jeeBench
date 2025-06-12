@@ -351,29 +351,68 @@ class AdvancedJEE2025Extractor:
 
                 syllabus_text += "\nYou MUST select the unit from the above syllabus based on the question content."
 
+            # Prepare question type descriptions from scoring config
+            question_type_descriptions = ""
+            if self.scoring_config:
+                question_type_descriptions = "\n\nQUESTION TYPE IDENTIFICATION:\n"
+                for q_type, config in self.scoring_config.items():
+                    question_type_descriptions += f"\n{q_type}:\n"
+                    question_type_descriptions += f"  Description: {config.get('description', '')}\n"
+
             # AI prompt for analysis
             prompt = f"""
 Analyze this JEE Advanced question image and extract the following information in JSON format:
 
 {{
-  "type": "MCQ" or "Numerical" or "Multiple Correct",
+  "type": "MCQ" or "Multiple Correct" or "Numerical" or "Pair Matching",
   "subject": "Mathematics" or "Physics" or "Chemistry",
   "unit": "EXACT unit name from the syllabus below",
-  "choices": ["A", "B", "C", "D"] or [] for numerical,
-  "answer": "correct answer(s) - letter(s) for MCQ or number for numerical",
+  "choices": ["A", "B", "C", "D"] or [] for numerical/pair matching,
+  "answer": "correct answer(s) - letter(s) for MCQ or number for numerical or mapping for pair matching",
   "difficulty": "Easy" or "Medium" or "Hard",
   "question_text": "EXACT question text from the image"
 }}
 
 {syllabus_text}
 
+{question_type_descriptions}
+
+CRITICAL QUESTION TYPE IDENTIFICATION RULES:
+
+1. **MCQ (Single Correct Answer)**:
+   - Choose ONE option from multiple choices (A, B, C, D)
+   - Usually has 4 options to choose from
+   - Answer is a single letter (e.g., "A" or "B")
+
+2. **Multiple Correct**:
+   - Choose MULTIPLE correct options from the given choices
+   - Can have 2, 3, or 4 correct answers
+   - Answer format: multiple letters (e.g., "A,C" or "B,C,D")
+
+3. **Numerical**:
+   - Requires calculating a numerical answer
+   - No multiple choice options provided
+   - Answer is a number (integer or decimal)
+
+4. **Pair Matching**:
+   - Has TWO lists: List-I with items (P, Q, R, S) and List-II with items (1, 2, 3, 4, 5)
+   - Requires matching items from List-I to items in List-II
+   - Answer format shows mappings like: P→3, Q→1, R→2, S→4
+   - Look for phrases like "Match the following", "Match List-I with List-II"
+   - Options show different combinations of mappings
+
+IDENTIFICATION STEPS:
+1. First, look for two distinct lists labeled "List-I" and "List-II"
+2. If you see items like (P), (Q), (R), (S) in one list and numbers (1), (2), (3), (4), (5) in another list, it's likely "Pair Matching"
+3. If you see standard (A), (B), (C), (D) options with single answer expected, it's "MCQ"
+4. If multiple options can be correct, it's "Multiple Correct"
+5. If no options are given and a numerical answer is expected, it's "Numerical"
+
 IMPORTANT INSTRUCTIONS:
-1. For the "unit" field, you MUST use the EXACT unit name from the syllabus above
-2. Analyze the question content to determine which syllabus unit it belongs to
-3. Do NOT create your own unit names - only use the ones listed in the syllabus
-4. Look for multiple choice options (A), (B), (C), (D)
-5. Look for answer key in solution sections
-6. ONLY provide valid JSON, no other text.
+- For "unit" field: Use EXACT unit name from syllabus above
+- For "answer" field: Extract from solution/answer key if visible
+- For "Pair Matching": Look for answer format like "P→1, Q→2, R→3, S→4"
+- ONLY provide valid JSON, no other text
 """
 
             response = self.anthropic_client.messages.create(
@@ -423,7 +462,14 @@ IMPORTANT INSTRUCTIONS:
                         else:
                             logger.debug(f"AI selected valid unit: {unit}")
 
-                    logger.debug(f"AI analysis successful: {analysis.get('type', 'Unknown')} question")
+                    # Log the question type identification for debugging
+                    identified_type = analysis.get('type', 'Unknown')
+                    logger.debug(f"AI identified question type: {identified_type}")
+
+                    # If it's a Pair Matching question, log additional details
+                    if identified_type == "Pair Matching":
+                        logger.info(f"Pair Matching question detected - Answer: {analysis.get('answer', 'N/A')}")
+
                     return analysis
                 else:
                     logger.warning("No JSON found in AI response")
