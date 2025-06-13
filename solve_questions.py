@@ -509,6 +509,11 @@ class QuestionProcessor:
             r'"Final Answer":\s*"([^"]+)"',
             r'"Final Answer":\s*([^,}\n]+)',
             r'\*\*Final Answer:\*\*\s*([^\n]+)',  # Handle bold markdown
+            # Add patterns for LaTeX \boxed{} format BEFORE the generic patterns
+            r'\\boxed\{([^}]+)\}',  # Match \boxed{content}
+            r'\$\\boxed\{([^}]+)\}\$',  # Match $\boxed{content}$
+            r'is\s+\$\\boxed\{([^}]+)\}\$',  # Match "is $\boxed{content}$"
+            # Generic patterns should come AFTER LaTeX patterns
             r'Final Answer:?\s*([^\n]+)',
             r'Answer:?\s*([^\n]+)',
         ]
@@ -542,8 +547,12 @@ class QuestionProcessor:
                         question_type = 'Multiple Correct'
                     elif 'Pair Matching' in description:
                         question_type = 'Pair Matching'
+                    elif 'Single Correct' in description or 'MCQ' in description:
+                        question_type = 'MCQ'
+                    elif 'Numerical' in description:
+                        question_type = 'Numerical'
 
-            # Handle multiple correct answers based on question type OR key_answer format
+            # ONLY Multiple Correct questions can have multiple answers and partial marks
             if question_type == "Multiple Correct":
                 # Always treat as multiple correct if question type is Multiple Correct
                 if isinstance(key_answer, list):
@@ -556,27 +565,36 @@ class QuestionProcessor:
                     # Single answer key but Multiple Correct question type - convert to list
                     key_answers_list = [key_answer.strip()]
                     return self._compare_multiple_correct_answers_with_score(llm_answer, key_answers_list, scoring_info)
-            elif isinstance(key_answer, list):
-                return self._compare_multiple_correct_answers_with_score(llm_answer, key_answer, scoring_info)
-            elif isinstance(key_answer, str) and ',' in key_answer:
-                # Convert comma-separated string to list for Multiple Correct questions
-                key_answers_list = [choice.strip() for choice in key_answer.split(',')]
-                return self._compare_multiple_correct_answers_with_score(llm_answer, key_answers_list, scoring_info)
 
-            # Handle single answer
+            # For all other question types (MCQ, Numerical, Pair Matching), handle as single answer
+            # Even if key_answer is a list or comma-separated, these question types don't have partial scoring
+            elif isinstance(key_answer, list):
+                # If it's a list but not Multiple Correct, check if LLM answer matches any of the valid answers
+                for single_key in key_answer:
+                    match_type, score = self._compare_single_answer_with_score(llm_answer, single_key, scoring_info)
+                    if match_type == "Yes":
+                        return match_type, score
+                # No match found
+                return "No", scoring_info.get('negative_marks', 0) if scoring_info else 0.0
+            elif isinstance(key_answer, str) and ',' in key_answer:
+                # If it's comma-separated but not Multiple Correct, check each possibility
+                key_answers_list = [choice.strip() for choice in key_answer.split(',')]
+                for single_key in key_answers_list:
+                    match_type, score = self._compare_single_answer_with_score(llm_answer, single_key, scoring_info)
+                    if match_type == "Yes":
+                        return match_type, score
+                # No match found
+                return "No", scoring_info.get('negative_marks', 0) if scoring_info else 0.0
+
+            # Handle single answer (most common case)
             return self._compare_single_answer_with_score(llm_answer, key_answer, scoring_info)
 
         except Exception as e:
             logger.error(f"Error comparing answers: {e}")
             return "No", 0.0
 
-    def _compare_answers(self, llm_answer: Optional[str], key_answer: Optional[str]) -> bool:
-        """Compare LLM answer with answer key (backward compatibility)"""
-        match_type, _ = self._compare_answers_with_score(llm_answer, key_answer)
-        return match_type == "Yes"
-
     def _compare_single_answer_with_score(self, llm_answer: str, key_answer: str, scoring_info: Dict[str, Any] = None) -> Tuple[str, float]:
-        """Compare single answer responses with scoring"""
+        """Compare single answer responses with scoring - NO partial marks for single answer questions"""
         # Get scoring information from the question metadata
         if scoring_info is None:
             scoring_info = {}
@@ -584,7 +602,7 @@ class QuestionProcessor:
         # Only use scoring values if explicitly provided in metadata
         full_marks = scoring_info.get('full_marks')
         negative_marks = scoring_info.get('negative_marks')
-        partial_marks = scoring_info.get('partial_marks')
+        zero_marks = scoring_info.get('zero_marks', 0)
 
         # Normalize both answers
         llm_norm = self._normalize_answer(llm_answer)
@@ -594,19 +612,16 @@ class QuestionProcessor:
         if llm_norm == key_norm or self._is_numerical_match(llm_answer, key_answer):
             return "Yes", full_marks if full_marks is not None else 0.0
 
-        # Check if answer key is in LLM's answer - award partial marks
-        if key_norm in llm_norm and partial_marks is not None:
-            # If partial_marks is a dictionary, it's likely a multiple correct question
-            # In this case, we shouldn't give partial marks for single answer matching
-            if isinstance(partial_marks, dict):
-                # For single answer questions with dict partial_marks, treat as no partial scoring
-                pass
-            else:
-                # partial_marks is a number, use it directly
-                return "Partial", partial_marks
+        # For single answer questions (MCQ, Numerical, Pair Matching), there are NO partial marks
+        # Only full marks for correct, negative/zero marks for incorrect, zero marks for unanswered
 
-        # Incorrect answer - award negative marks (or use 0 if no scoring info)
+        # Incorrect answer - award negative marks (or zero for Numerical questions)
         return "No", negative_marks if negative_marks is not None else 0.0
+
+    def _compare_answers(self, llm_answer: Optional[str], key_answer: Optional[str]) -> bool:
+        """Compare LLM answer with answer key (backward compatibility)"""
+        match_type, _ = self._compare_answers_with_score(llm_answer, key_answer)
+        return match_type == "Yes"
 
     def _compare_single_answer(self, llm_answer: str, key_answer: str) -> bool:
         """Compare single answer responses (backward compatibility)"""
