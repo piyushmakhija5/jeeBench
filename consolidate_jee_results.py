@@ -409,7 +409,7 @@ def main():
 
     # Create Excel file with multiple sheets
     timestamp = datetime.now().strftime("%Y%m%d")
-    output_file = f"jee_benchmark_consolidated_{timestamp}.xlsx"
+    output_file = f"./data/outputs/results/jee_benchmark_consolidated_{timestamp}.xlsx"
 
     print(f"Writing to Excel file: {output_file}")
     with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
