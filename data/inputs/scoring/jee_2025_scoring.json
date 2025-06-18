@@ -1,0 +1,31 @@
+{
+    "MCQ": {
+        "full_marks": 3,
+        "negative_marks": -1,
+        "zero_marks": 0,
+        "description": "Single Correct Answer: Choose one option from multiple choices (A, B, C, D). +3 for correct, -1 for wrong, 0 for unanswered"
+    },
+    "Multiple Correct": {
+        "full_marks": 4,
+        "negative_marks": -2,
+        "partial_marks": {
+            "3_of_4": 3,
+            "2_of_3_plus": 2,
+            "1_of_2_plus": 1
+        },
+        "zero_marks": 0,
+        "description": "Multiple Correct: +4 if all correct options chosen; +3 if all 4 correct but only 3 chosen; +2 if 3+ correct but only 2 chosen (both correct); +1 if 2+ correct but only 1 chosen (correct); 0 if unanswered; -2 in all other cases"
+    },
+    "Numerical": {
+        "full_marks": 4,
+        "negative_marks": 0,
+        "zero_marks": 0,
+        "description": "Numerical Answer: +4 for correct answer, 0 for wrong/unanswered (no negative marking)"
+    },
+    "Pair Matching": {
+        "full_marks": 4,
+        "zero_marks": 0,
+        "negative_marks": -1,
+        "description": "Pair Matching: Match items from List-I (P, Q, R, S) with items from List-II (1, 2, 3, 4, 5). Answer format: P→X, Q→Y, R→Z, S→W where X,Y,Z,W are numbers from List-II. +4 if all pairs correctly matched, -1 for wrong, 0 for unanswered"
+    }
+}
