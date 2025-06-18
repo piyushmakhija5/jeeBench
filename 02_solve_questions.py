@@ -17,9 +17,9 @@ from openai import OpenAI
 import google.generativeai as genai
 from tqdm import tqdm
 
-from config import config
-from logger import get_logger, setup_logging
-from exceptions import (
+from utils.config import config
+from utils.logger import get_logger, setup_logging
+from utils.exceptions import (
     APIKeyError, APIResponseError, APIRateLimitError, ModelNotAvailableError,
     ImageProcessingError, JSONProcessingError, ValidationError, PathNotFoundError
 )

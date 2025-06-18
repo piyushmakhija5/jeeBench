@@ -14,8 +14,8 @@ import tqdm
 from dotenv import load_dotenv
 
 from anthropic import Anthropic
-from logger import get_logger, setup_logging
-from config import config
+from utils.logger import get_logger, setup_logging
+from utils.config import config
 
 # Load environment variables
 load_dotenv()
