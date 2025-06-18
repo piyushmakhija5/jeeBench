@@ -128,10 +128,10 @@ class Config:
                     }
                 },
                 "google": {
-                    "gemini-2.5-flash-preview-05-20": {
-                        "model": "gemini-2.5-flash-preview-05-20",
-                        "input_price": 0.15/1000000,
-                        "output_price": 0.60/1000000,
+                    "gemini-2.5-flash": {
+                        "model": "gemini-2.5-flash",
+                        "input_price": 0.3/1000000,
+                        "output_price": 2.5/1000000,
                         "max_output_tokens": 50000,
                         "temperature": 0.0,
                         "api_key_env": "GOOGLE_API_KEY"
@@ -144,8 +144,8 @@ class Config:
                         "temperature": 0.0,
                         "api_key_env": "GOOGLE_API_KEY"
                     },
-                    "gemini-2.5-pro-preview-06-05": {
-                        "model": "gemini-2.5-pro-preview-06-05",
+                    "gemini-2.5-pro": {
+                        "model": "gemini-2.5-pro",
                         "input_price": 1.25/1000000,
                         "output_price": 10.00/1000000,
                         "max_output_tokens": 50000,

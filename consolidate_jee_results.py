@@ -93,12 +93,29 @@ def create_summary_comparison(all_results):
         summary = data.get('summary', {})
         total_score = summary.get('total_score', 0)
 
+        # Calculate total API call time and average per question
+        total_api_time = 0
+        total_questions = data.get('total_questions', 0)
+
+        for question in data.get('questions', []):
+            processing_result = question.get('processing_result', {})
+            if processing_result is not None:
+                metrics = processing_result.get('metrics', {})
+                if metrics is not None:
+                    api_call_time = metrics.get('api_call_time', 0)
+                    total_api_time += api_call_time
+
+        avg_api_time_per_question = total_api_time / total_questions if total_questions > 0 else 0
+        total_api_time_minutes = total_api_time / 60  # Convert seconds to minutes
+
         row = {
             'Model': model_name,
             'Total Score': total_score,
             'All India Rank (AIR)': get_air_ranking(total_score),
             'Score Percentage (%)': round(summary.get('score_percentage', 0), 2),
             'Total Cost ($)': round(summary.get('total_cost', 0), 4),
+            'Avg API Time per Question (s)': round(avg_api_time_per_question, 2),
+            'Total API Call Time (min)': round(total_api_time_minutes, 2),
             'Total Questions': data.get('total_questions', 0),
             'Successfully Processed': summary.get('successful_processing', 0),
             'Correct Answers (Yes)': summary.get('yes_matches', 0),
@@ -437,7 +454,7 @@ def main():
 
     print(f"✅ Successfully created consolidated Excel file: {output_file}")
     print("\nSummary of results:")
-    print(summary_df[['Model',"Total Score", "All India Rank (AIR)", "Score Percentage (%)", 'Total Cost ($)']].to_string(index=False))
+    print(summary_df[['Model', "Total Score", "All India Rank (AIR)", "Score Percentage (%)", 'Total Cost ($)', "Avg API Time per Question (s)"]].to_string(index=False))
 
 if __name__ == "__main__":
     main()
