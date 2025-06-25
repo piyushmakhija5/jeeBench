@@ -32,6 +32,15 @@ data/
 │ └── scoring/ # jee_2025_scoring.json
 └── outputs/ # Results will be generated here
 ```
+
+## Workflow Summary
+
+1. **Extract** → PDF papers become structured question data
+2. **Solve** → AI models answer questions, get scored using JEE rules
+3. **Analyze** → Generate comparative performance reports
+
+**Output:** Excel file with complete model comparison and AIR rankings based on human topper scores.
+
 ## Usage
 
 ### Step 1: Extract Questions from PDFs
@@ -83,14 +92,6 @@ python 03_consolidate_jee_results.py
 - **JEE Scoring:** Official scoring rules with partial credit
 - **Analytics:** Performance by subject/unit/difficulty + cost tracking
 - **Parallel Processing:** Faster evaluation with `--parallel` flag
-
-## Workflow Summary
-
-1. **Extract** → PDF papers become structured question data
-2. **Solve** → AI models answer questions, get scored using JEE rules
-3. **Analyze** → Generate comparative performance reports
-
-**Output:** Excel file with complete model comparison and AIR rankings based on human topper scores.
 
 ## Collaboration
 
