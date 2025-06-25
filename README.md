@@ -4,6 +4,10 @@
 
 jeeBench benchmarks Large Language Models (LLMs) on Joint Entrance Examination (JEE) Advanced 2025 papers. It extracts questions from PDFs, evaluates them with multiple AI providers (Anthropic, OpenAI, Google), and generates performance analytics.
 
+## Results
+
+<img src="data/jee_bench_results.png" alt="JEE Bench Results" width="600">
+
 ## Quick Setup
 
 ### 1. Install Dependencies
@@ -69,9 +73,9 @@ python 03_consolidate_jee_results.py
 
 ## Supported Models
 
-**Anthropic:** Claude Sonnet 4, Claude Opus 4
-**OpenAI:** GPT-4o, GPT-4.1, O3, O4-mini
-**Google:** Gemini 2.5 Flash, Gemini 2.0 Flash, Gemini 2.5 Pro
+- **Anthropic:** Claude Sonnet 4, Claude Opus 4
+- **OpenAI:** GPT-4o, GPT-4.1, O3, O4-mini
+- **Google:** Gemini 2.5 Flash, Gemini 2.0 Flash, Gemini 2.5 Pro
 
 ## Key Features
 
