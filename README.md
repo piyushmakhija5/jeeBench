@@ -91,3 +91,24 @@ python 03_consolidate_jee_results.py
 3. **Analyze** → Generate comparative performance reports
 
 **Output:** Excel file with complete model comparison and AIR rankings based on human topper scores.
+
+## Collaboration
+
+Contributions to expand jeeBench! Here are areas where you can help:
+
+### Expansion Opportunities
+
+#### 📚 **More Examination Papers**
+- [ ] Older JEE papers
+- [ ] NEET (National Eligibility cum Entrance Test)
+- [ ] GATE (Graduate Aptitude Test in Engineering)
+- [ ] CAT/GMAT (Management entrance exams)
+- [ ] SAT/GRE (International standardized tests)
+
+#### 🤖 **Additional AI Models**
+- [ ] Meta: Llama 3.2/3.3 models, Llama 3.2
+- [ ] Mistral: Mistral Large, Mixtral 8x7B
+- [ ] Sarvam-M
+- [ ] Other Models: Qwen, DeepSeek, etc.
+
+Fork the repository, make your changes, and submit a pull request!
