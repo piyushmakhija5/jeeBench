@@ -16,7 +16,7 @@ pip install -r requirements.txt
 ```
 
 ### 2. Set API Keys
-Create `.env` file:
+Copy `.env.local` → `.env` file:
 ```bash
 ANTHROPIC_API_KEY=your_key_here
 OPENAI_API_KEY=your_key_here
