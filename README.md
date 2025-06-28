@@ -110,6 +110,8 @@ Contributions to expand jeeBench! Here are areas where you can help:
 - [ ] Meta: Llama 3.2/3.3 models, Llama 3.2
 - [ ] Mistral: Mistral Large, Mixtral 8x7B
 - [ ] Sarvam-M
+- [ ] Fractal Fathom-R1-14B
 - [ ] Other Models: Qwen, DeepSeek, etc.
+- [ ] Dhanishtha-2.0-preview
 
 Fork the repository, make your changes, and submit a pull request!
