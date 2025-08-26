@@ -83,8 +83,9 @@ python 03_consolidate_jee_results.py
 ## Supported Models
 
 - **Anthropic:** Claude Sonnet 4, Claude Opus 4
-- **OpenAI:** GPT-4o, GPT-4.1, O3, O4-mini
+- **OpenAI:** GPT-4o, GPT-4.1, o3, o4-mini, GPT-5
 - **Google:** Gemini 2.5 Flash, Gemini 2.0 Flash, Gemini 2.5 Pro
+- **xAI:** Grok 4
 
 ## Key Features
 
