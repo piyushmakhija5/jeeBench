@@ -15,6 +15,8 @@ from dotenv import load_dotenv
 from anthropic import Anthropic
 from openai import OpenAI
 import google.generativeai as genai
+import xai_sdk
+from xai_sdk.chat import user, image
 from tqdm import tqdm
 
 from utils.config import config
@@ -55,6 +57,8 @@ class QuestionProcessor:
         elif self.provider == "google":
             genai.configure(api_key=api_key)
             return genai.GenerativeModel(self.model_config.model)
+        elif self.provider == "xai":
+            return xai_sdk.Client(api_key=api_key)
         else:
             raise ModelNotAvailableError(f"Unsupported provider: {self.provider}")
 
@@ -131,7 +135,7 @@ class QuestionProcessor:
 
                 # Use appropriate token parameter based on model
                 model_name = self.model_config.model.lower()
-                if any(model in model_name for model in ['o3', 'o4']):
+                if any(model in model_name for model in ['o3', 'o4', 'gpt-5']):
                     api_params["max_completion_tokens"] = self.model_config.max_tokens
                 else:
                     api_params["max_tokens"] = self.model_config.max_tokens
@@ -168,6 +172,31 @@ class QuestionProcessor:
                         "total_token_count": 0
                     })()
                 response_text = response.text
+            elif self.provider == "xai":
+                # Create chat instance with vision model
+                chat = self.client.chat.create(
+                    model=self.model_config.model,
+                    messages=[],
+                    temperature=self.model_config.temperature,
+                    max_tokens=self.model_config.max_tokens
+                )
+
+                # Convert base64 to data URL format for xAI
+                image_data_url = f"data:image/png;base64,{base64_image}"
+
+                # Add user message with image and text
+                chat.append(
+                    user(
+                        prompt,
+                        image(image_data_url)
+                    )
+                )
+
+                # Sample the response
+                response = chat.sample()
+
+                # Extract response text
+                response_text = response.content
 
             api_call_time = time.time() - api_call_start
 
@@ -191,6 +220,9 @@ class QuestionProcessor:
                                 getattr(usage, 'candidatesTokenCount', 0) or
                                 getattr(usage, 'output_tokens', 0) or
                                 getattr(usage, 'completion_tokens', 0))
+            elif self.provider == "xai":
+                input_tokens = getattr(usage, 'prompt_tokens', 0)
+                output_tokens = getattr(usage, 'completion_tokens', 0)
             else:
                 # Default fallback - try multiple naming conventions
                 input_tokens = (getattr(usage, 'input_tokens', 0) or
@@ -1133,7 +1165,7 @@ def main():
 
     parser = argparse.ArgumentParser(description='Process questions using AI model providers')
     parser.add_argument('--provider', type=str, default='anthropic',
-                       help='The AI model provider to use (anthropic, openai, google, or "all" for all providers)')
+                       help='The AI model provider to use (anthropic, openai, google, xai or "all" for all providers)')
     parser.add_argument('--model', type=str, default=None,
                        help='Specific model name to use, or "all" to run all models for the provider')
     parser.add_argument('--questions', type=str, default='data/outputs/extracted_questions/question_metadata_jee_2025.json',

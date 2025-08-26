@@ -125,6 +125,14 @@ class Config:
                         "max_tokens": 10000,
                         "temperature": 1.0,
                         "api_key_env": "OPENAI_API_KEY"
+                    },
+                    "gpt-5": {
+                        "model": "gpt-5",
+                        "input_price": 1.25/1000000,
+                        "output_price": 10.0/1000000,
+                        "max_tokens": 10000,
+                        "temperature": 1.0,
+                        "api_key_env": "OPENAI_API_KEY"
                     }
                 },
                 "google": {
@@ -151,6 +159,16 @@ class Config:
                         "max_output_tokens": 50000,
                         "temperature": 0.0,
                         "api_key_env": "GOOGLE_API_KEY"
+                    }
+                },
+                "xai": {
+                    "grok-4": {
+                        "model": "grok-4-0709",
+                        "input_price": 3/1000000,
+                        "output_price": 15/1000000,
+                        "max_tokens": 10000,
+                        "temperature": 0.0,
+                        "api_key_env": "XAI_API_KEY"
                     }
                 }
             },

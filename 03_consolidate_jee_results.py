@@ -26,7 +26,8 @@ def extract_model_name(filename):
         'anthropic_claude-sonnet-4-20250514': 'Claude Sonnet 4',
         'google_gemini-2.0-flash': 'Gemini 2.0 Flash',
         'google_gemini-2.5-pro-preview-06-05': 'Gemini 2.5 Pro',
-        'google_gemini-2.5-flash-preview-05-20': 'Gemini 2.5 Flash'
+        'google_gemini-2.5-flash-preview-05-20': 'Gemini 2.5 Flash',
+        'xai_grok-4': 'Grok-4'
     }
 
     return name_mappings.get(name, name)
