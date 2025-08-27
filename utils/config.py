@@ -187,14 +187,6 @@ class Config:
                         "max_output_tokens": 8192,
                         "temperature": 0.0,
                         "api_key_env": "GROQ_API_KEY"
-                    },
-                    "llama-guard-4": {
-                        "model": "meta-llama/llama-guard-4-12b",
-                        "input_price": 0.2/1000000,
-                        "output_price": 0.2/1000000,
-                        "max_output_tokens": 1024,
-                        "temperature": 0.0,
-                        "api_key_env": "GROQ_API_KEY"
                     }
                 }
             },

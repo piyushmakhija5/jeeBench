@@ -20,6 +20,7 @@ def extract_model_name(filename):
     name_mappings = {
         'openai_gpt-4o': 'GPT-4o',
         'openai_gpt-4.1': 'GPT-4.1',
+        'openai_gpt-5': 'GPT-5',
         'openai_o3': 'O3',
         'openai_o4-mini': 'O4-mini',
         'anthropic_claude-opus-4-20250514': 'Claude Opus 4',
@@ -27,7 +28,9 @@ def extract_model_name(filename):
         'google_gemini-2.0-flash': 'Gemini 2.0 Flash',
         'google_gemini-2.5-pro-preview-06-05': 'Gemini 2.5 Pro',
         'google_gemini-2.5-flash-preview-05-20': 'Gemini 2.5 Flash',
-        'xai_grok-4': 'Grok-4'
+        'xai_grok-4': 'Grok-4',
+        'groq_llama-4-maverick': 'LLAMA-4-MAVERICK',
+        'groq_llama-4-scout': 'LLAMA-4-SCOUT',
     }
 
     return name_mappings.get(name, name)
