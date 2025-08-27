@@ -17,6 +17,7 @@ from openai import OpenAI
 import google.generativeai as genai
 import xai_sdk
 from xai_sdk.chat import user, image
+from groq import Groq
 from tqdm import tqdm
 
 from utils.config import config
@@ -59,6 +60,8 @@ class QuestionProcessor:
             return genai.GenerativeModel(self.model_config.model)
         elif self.provider == "xai":
             return xai_sdk.Client(api_key=api_key)
+        elif self.provider == "groq":
+            return Groq(api_key=api_key)
         else:
             raise ModelNotAvailableError(f"Unsupported provider: {self.provider}")
 
@@ -197,6 +200,30 @@ class QuestionProcessor:
 
                 # Extract response text
                 response_text = response.content
+            elif self.provider == "groq":
+                # Prepare parameters for OpenAI API call
+                api_params = {
+                    "model": self.model_config.model,
+                    "messages": [{
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/png;base64,{base64_image}"}
+                            },
+                            {"type": "text", "text": prompt}
+                        ]
+                    }],
+                    "temperature": self.model_config.temperature
+                }
+
+                # Use appropriate token parameter based on model
+                model_name = self.model_config.model.lower()
+                api_params["max_completion_tokens"] = self.model_config.max_tokens
+
+                response = self.client.chat.completions.create(**api_params)
+                usage = response.usage
+                response_text = response.choices[0].message.content
 
             api_call_time = time.time() - api_call_start
 

@@ -170,6 +170,32 @@ class Config:
                         "temperature": 0.0,
                         "api_key_env": "XAI_API_KEY"
                     }
+                },
+                "groq": {
+                    "llama-4-maverick": {
+                        "model": "meta-llama/llama-4-maverick-17b-128e-instruct",
+                        "input_price": 0.2/1000000,
+                        "output_price": 0.6/1000000,
+                        "max_tokens": 8192,
+                        "temperature": 0.0,
+                        "api_key_env": "GROQ_API_KEY"
+                    },
+                    "llama-4-scout": {
+                        "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+                        "input_price": 0.11/1000000,
+                        "output_price": 0.34/1000000,
+                        "max_output_tokens": 8192,
+                        "temperature": 0.0,
+                        "api_key_env": "GROQ_API_KEY"
+                    },
+                    "llama-guard-4": {
+                        "model": "meta-llama/llama-guard-4-12b",
+                        "input_price": 0.2/1000000,
+                        "output_price": 0.2/1000000,
+                        "max_output_tokens": 1024,
+                        "temperature": 0.0,
+                        "api_key_env": "GROQ_API_KEY"
+                    }
                 }
             },
             "processing": {
