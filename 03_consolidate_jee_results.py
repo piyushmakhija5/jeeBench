@@ -97,9 +97,10 @@ def create_summary_comparison(all_results):
         summary = data.get('summary', {})
         total_score = summary.get('total_score', 0)
 
-        # Calculate total API call time and average per question
+        # Calculate total API call time, average per question, and collect all API times for percentiles
         total_api_time = 0
         total_questions = data.get('total_questions', 0)
+        api_times = []
 
         for question in data.get('questions', []):
             processing_result = question.get('processing_result', {})
@@ -108,9 +109,18 @@ def create_summary_comparison(all_results):
                 if metrics is not None:
                     api_call_time = metrics.get('api_call_time', 0)
                     total_api_time += api_call_time
+                    api_times.append(api_call_time)
 
         avg_api_time_per_question = total_api_time / total_questions if total_questions > 0 else 0
         total_api_time_minutes = total_api_time / 60  # Convert seconds to minutes
+
+        # Calculate median, P75, and P90 response times
+        if api_times:
+            median_response_time = np.median(api_times)
+            p75_response_time = np.percentile(api_times, 75)
+            p90_response_time = np.percentile(api_times, 90)
+        else:
+            median_response_time = p75_response_time = p90_response_time = 0
 
         # Calculate average tokens per question
         total_tokens = summary.get('total_tokens', 0)
@@ -123,6 +133,9 @@ def create_summary_comparison(all_results):
             'Score Percentage (%)': round(summary.get('score_percentage', 0), 2),
             'Total Cost ($)': round(summary.get('total_cost', 0), 4),
             'Avg API Time per Question (s)': round(avg_api_time_per_question, 2),
+            'Median Response Time (s)': round(median_response_time, 2),
+            'P75 Response Time (s)': round(p75_response_time, 2),
+            'P90 Response Time (s)': round(p90_response_time, 2),
             'Avg Tokens per Question': round(avg_tokens_per_question, 0),
             'Total API Call Time (min)': round(total_api_time_minutes, 2),
             'Total Questions': data.get('total_questions', 0),
@@ -463,7 +476,7 @@ def main():
 
     print(f"✅ Successfully created consolidated Excel file: {output_file}")
     print("\nSummary of results:")
-    print(summary_df[['Model', "Total Score", "All India Rank (AIR)", "Score Percentage (%)", 'Total Cost ($)', "Avg API Time per Question (s)", "Avg Tokens per Question"]].to_string(index=False))
+    print(summary_df[['Model', "Total Score", "All India Rank (AIR)", "Score Percentage (%)", 'Total Cost ($)', "Avg API Time per Question (s)", "Median Response Time (s)", "P75 Response Time (s)", "P90 Response Time (s)", "Avg Tokens per Question"]].to_string(index=False))
 
 if __name__ == "__main__":
     main()
