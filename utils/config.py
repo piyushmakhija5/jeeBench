@@ -163,7 +163,7 @@ class Config:
                 },
                 "xai": {
                     "grok-4": {
-                        "model": "grok-4-0709",
+                        "model": "grok-4",
                         "input_price": 3/1000000,
                         "output_price": 15/1000000,
                         "max_tokens": 10000,

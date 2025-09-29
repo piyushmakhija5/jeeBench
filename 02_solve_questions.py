@@ -59,7 +59,10 @@ class QuestionProcessor:
             genai.configure(api_key=api_key)
             return genai.GenerativeModel(self.model_config.model)
         elif self.provider == "xai":
-            return xai_sdk.Client(api_key=api_key)
+            return xai_sdk.Client(
+                api_key=api_key,
+                timeout=500
+            )
         elif self.provider == "groq":
             return Groq(api_key=api_key)
         else:
@@ -176,13 +179,8 @@ class QuestionProcessor:
                     })()
                 response_text = response.text
             elif self.provider == "xai":
-                # Create chat instance with vision model
-                chat = self.client.chat.create(
-                    model=self.model_config.model,
-                    messages=[],
-                    temperature=self.model_config.temperature,
-                    max_tokens=self.model_config.max_tokens
-                )
+                # Create chat instance
+                chat = self.client.chat.create(model=self.model_config.model)
 
                 # Convert base64 to data URL format for xAI
                 image_data_url = f"data:image/png;base64,{base64_image}"
@@ -198,7 +196,8 @@ class QuestionProcessor:
                 # Sample the response
                 response = chat.sample()
 
-                # Extract response text
+                # Extract usage and response text
+                usage = response.usage  # This was missing!
                 response_text = response.content
             elif self.provider == "groq":
                 # Prepare parameters for OpenAI API call
